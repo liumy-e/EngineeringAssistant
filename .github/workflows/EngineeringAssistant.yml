@@ -1,0 +1,165 @@
+name: Build and Release EngineeringAssistant
+
+# 触发条件：推送到main分支或创建新Release时触发
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [created]
+
+jobs:
+  # Windows x64 构建（MinGW工具链）
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5.15.2 (MinGW)
+        uses: jurplel/action-qt@v2
+        with:
+          qt: '5.15.2'
+          arch: 'win64_mingw'  # 指定MinGW工具链
+
+      - name: Install MinGW dependencies
+        run: choco install -y mingw-w64-x86-64-dev
+
+      - name: Build project (qmake + jom)
+        run: |
+          qmake CONFIG+=release  # 生成Release版本
+          jom -j$(nproc)        # 使用所有CPU核心加速编译
+
+      - name: Package as .exe installer (Inno Setup)
+        run: |
+          # 假设项目根目录有installer.iss脚本（需提前配置）
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Upload to GitHub Releases
+        id: upload-release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload-release.outputs.upload_url }}
+          asset_path: ./Output/EngineeringAssistant-Setup.exe
+          asset_name: EngineeringAssistant-${{ github.ref_name }}-win64.exe
+          asset_content_type: application/x-msdownload
+
+  # Ubuntu 构建（Linux原生）
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5.15.2
+        uses: jurplel/action-qt@v2
+        with:
+          qt: '5.15.2'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxrandr-dev  # Qt依赖
+
+      - name: Build project (qmake + make)
+        run: |
+          qmake CONFIG+=release
+          make -j$(nproc)  # 使用所有CPU核心加速编译
+
+      - name: Package as .deb (Debian包)
+        run: |
+          # 创建deb包结构
+          mkdir -p deb/usr/bin
+          mkdir -p deb/usr/share/EngineeringAssistant
+          cp EngineeringAssistant deb/usr/bin/
+          cp resources.qrc deb/usr/share/EngineeringAssistant/  # 假设项目有资源文件
+          mkdir -p deb/DEBIAN
+          
+          # 生成DEBIAN/control文件
+          cat > deb/DEBIAN/control <<EOF
+          Package: EngineeringAssistant
+          Version: ${{ github.ref_name }}
+          Section: utils
+          Architecture: amd64
+          Maintainer: Your Name <your@email.com>
+          Description: A Qt application for engineering.
+          EOF
+          
+          # 打包.deb文件
+          dpkg-deb --build deb
+
+      - name: Upload to GitHub Releases
+        id: upload-release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload-release.outputs.upload_url }}
+          asset_path: ./deb.deb
+          asset_name: EngineeringAssistant-${{ github.ref_name }}-ubuntu-amd64.deb
+          asset_content_type: application/x-debian-package
+
+  # macOS 构建
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5.15.2
+        uses: jurplel/action-qt@v2
+        with:
+          qt: '5.15.2'
+
+      - name: Install dependencies
+        run: brew install qt@5  # 通过Homebrew安装Qt依赖
+
+      - name: Build project (qmake + make)
+        run: |
+          qmake CONFIG+=release
+          make -j$(sysctl -n hw.ncpu)  # 使用所有CPU核心加速编译
+
+      - name: Package as .dmg (磁盘镜像)
+        run: |
+          # 创建.app包结构
+          mkdir -p EngineeringAssistant.app/Contents/MacOS
+          cp EngineeringAssistant EngineeringAssistant.app/Contents/MacOS/
+          cp resources.qrc EngineeringAssistant.app/Contents/Resources/  # 假设项目有资源文件
+          
+          # 生成Info.plist（应用信息）
+          cat > EngineeringAssistant.app/Contents/Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleIdentifier</key>
+            <string>com.liumy-e.EngineeringAssistant</string>
+            <key>CFBundleName</key>
+            <string>EngineeringAssistant</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+          </dict>
+          </plist>
+          EOF
+          
+          # 安装create-dmg工具并打包
+          brew install create-dmg
+          create-dmg \
+            --window-size 500 300 \
+            --icon-size 100 \
+            --app-drop-link 110 110 \
+            --icon "EngineeringAssistant.app" 360 110 \
+            "EngineeringAssistant-${{ github.ref_name }}.dmg" \
+            "EngineeringAssistant.app"
+
+      - name: Upload to GitHub Releases
+        id: upload-release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload-release.outputs.upload_url }}
+          asset_path: ./EngineeringAssistant-${{ github.ref_name }}.dmg
+          asset_name: EngineeringAssistant-${{ github.ref_name }}-macos.dmg
+          asset_content_type: application/x-apple-diskimage
