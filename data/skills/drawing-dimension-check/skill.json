@@ -1,0 +1,17 @@
+{
+  "id": "drawing-dimension-check",
+  "name": "图纸尺寸检查",
+  "version": "1.0.0",
+  "description": "检查工程图纸的尺寸标注完整性和合规性，生成检查报告",
+  "author": "内置",
+  "script": "builtin",
+  "params": [
+    {
+      "name": "drawing",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "图纸名称或编号"
+    }
+  ]
+}

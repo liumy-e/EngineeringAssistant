@@ -1,0 +1,17 @@
+{
+  "id": "standard-query",
+  "name": "工程标准查询",
+  "version": "1.0.0",
+  "description": "查询工程制图相关的国家标准和行业规范",
+  "author": "内置",
+  "script": "builtin",
+  "params": [
+    {
+      "name": "standard",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "标准编号，如 GB/T14689。不填则列出所有常用标准"
+    }
+  ]
+}
