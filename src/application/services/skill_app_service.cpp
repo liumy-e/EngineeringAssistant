@@ -28,6 +28,12 @@ std::vector<domain::skill::SkillMeta> SkillAppService::listSkills() const
     return m_registry->getAllMeta();
 }
 
+std::optional<domain::skill::SkillMeta>
+SkillAppService::getSkillMeta(const std::string& skillId) const
+{
+    return m_registry->getMeta(domain::skill::SkillId(skillId));
+}
+
 void SkillAppService::unloadSkill(const std::string& skillId)
 {
     m_registry->unregisterSkill(domain::skill::SkillId(skillId));

@@ -35,13 +35,12 @@ strong { color: #222; }
 )";
 
 // ----------------------------------------------------------------
+// render() 创建局部 RenderState，所有状态通过引用在栈上传递，
+// 不保存到成员变量，render() 可安全重入 / 并发调用。
+// ----------------------------------------------------------------
 RenderResult SimpleMarkdownRenderer::render(const std::string& markdown)
 {
-    // 重置状态
-    m_inCodeBlock  = false;
-    m_inUl         = false;
-    m_inOl         = false;
-    m_inParagraph  = false;
+    RenderState state;  // 全部状态都是局部变量，每次调用独立
 
     std::istringstream stream(markdown);
     std::string line;
@@ -56,60 +55,60 @@ RenderResult SimpleMarkdownRenderer::render(const std::string& markdown)
         // 去掉行尾 \r（Windows 换行符）
         if (!line.empty() && line.back() == '\r') line.pop_back();
 
-        html += processLine(line);
+        html += processLine(line, state);
     }
 
     // 关闭未关闭的块
-    closeOpenBlocks(html);
+    closeOpenBlocks(html, state);
 
     html += "</body></html>";
     return RenderResult::ok(html);
 }
 
 // ----------------------------------------------------------------
-std::string SimpleMarkdownRenderer::processLine(const std::string& line)
+std::string SimpleMarkdownRenderer::processLine(const std::string& line, RenderState& s)
 {
     std::string out;
 
     // ---- 代码块 ----
     if (line.substr(0, 3) == "```") {
-        if (m_inCodeBlock) {
-            m_inCodeBlock = false;
+        if (s.inCodeBlock) {
+            s.inCodeBlock = false;
             return "</code></pre>\n";
         } else {
             // 关闭段落
-            if (m_inParagraph) {
+            if (s.inParagraph) {
                 out += "</p>\n";
-                m_inParagraph = false;
+                s.inParagraph = false;
             }
-            m_inCodeBlock = true;
+            s.inCodeBlock = true;
             std::string lang = line.size() > 3 ? escapeHtml(line.substr(3)) : "";
             return out + "<pre><code class='language-" + lang + "'>";
         }
     }
-    if (m_inCodeBlock) {
+    if (s.inCodeBlock) {
         return escapeHtml(line) + "\n";
     }
 
     // ---- 空行 ----
     if (line.empty()) {
-        if (m_inUl)        { m_inUl = false; out += "</ul>\n"; }
-        if (m_inOl)        { m_inOl = false; out += "</ol>\n"; }
-        if (m_inParagraph) { m_inParagraph = false; out += "</p>\n"; }
+        if (s.inUl)        { s.inUl = false; out += "</ul>\n"; }
+        if (s.inOl)        { s.inOl = false; out += "</ol>\n"; }
+        if (s.inParagraph) { s.inParagraph = false; out += "</p>\n"; }
         return out;
     }
 
     // ---- 分隔线 ----
     if (line == "---" || line == "***" || line == "___") {
-        if (m_inParagraph) { out += "</p>\n"; m_inParagraph = false; }
+        if (s.inParagraph) { out += "</p>\n"; s.inParagraph = false; }
         return out + "<hr/>\n";
     }
 
     // ---- 标题 ----
     if (line[0] == '#') {
-        if (m_inParagraph) { out += "</p>\n"; m_inParagraph = false; }
-        if (m_inUl) { out += "</ul>\n"; m_inUl = false; }
-        if (m_inOl) { out += "</ol>\n"; m_inOl = false; }
+        if (s.inParagraph) { out += "</p>\n"; s.inParagraph = false; }
+        if (s.inUl) { out += "</ul>\n"; s.inUl = false; }
+        if (s.inOl) { out += "</ol>\n"; s.inOl = false; }
 
         int level = 0;
         while (level < (int)line.size() && line[level] == '#') ++level;
@@ -123,16 +122,16 @@ std::string SimpleMarkdownRenderer::processLine(const std::string& line)
 
     // ---- 引用块 ----
     if (line[0] == '>') {
-        if (m_inParagraph) { out += "</p>\n"; m_inParagraph = false; }
+        if (s.inParagraph) { out += "</p>\n"; s.inParagraph = false; }
         std::string content = line.size() > 1 ? line.substr(2) : "";
         return out + "<blockquote>" + processInline(content) + "</blockquote>\n";
     }
 
     // ---- 无序列表 ----
     if ((line[0] == '-' || line[0] == '*') && line.size() > 1 && line[1] == ' ') {
-        if (m_inParagraph) { out += "</p>\n"; m_inParagraph = false; }
-        if (m_inOl)        { out += "</ol>\n"; m_inOl = false; }
-        if (!m_inUl)       { out += "<ul>\n"; m_inUl = true; }
+        if (s.inParagraph) { out += "</p>\n"; s.inParagraph = false; }
+        if (s.inOl)        { out += "</ol>\n"; s.inOl = false; }
+        if (!s.inUl)       { out += "<ul>\n"; s.inUl = true; }
         return out + "<li>" + processInline(line.substr(2)) + "</li>\n";
     }
 
@@ -143,20 +142,20 @@ std::string SimpleMarkdownRenderer::processLine(const std::string& line)
             std::string num = line.substr(0, dotPos);
             bool isNum = std::all_of(num.begin(), num.end(), ::isdigit);
             if (isNum) {
-                if (m_inParagraph) { out += "</p>\n"; m_inParagraph = false; }
-                if (m_inUl)        { out += "</ul>\n"; m_inUl = false; }
-                if (!m_inOl)       { out += "<ol>\n"; m_inOl = true; }
+                if (s.inParagraph) { out += "</p>\n"; s.inParagraph = false; }
+                if (s.inUl)        { out += "</ul>\n"; s.inUl = false; }
+                if (!s.inOl)       { out += "<ol>\n"; s.inOl = true; }
                 return out + "<li>" + processInline(line.substr(dotPos + 2)) + "</li>\n";
             }
         }
     }
 
     // ---- 普通段落 ----
-    if (m_inUl) { out += "</ul>\n"; m_inUl = false; }
-    if (m_inOl) { out += "</ol>\n"; m_inOl = false; }
-    if (!m_inParagraph) {
+    if (s.inUl) { out += "</ul>\n"; s.inUl = false; }
+    if (s.inOl) { out += "</ol>\n"; s.inOl = false; }
+    if (!s.inParagraph) {
         out += "<p>";
-        m_inParagraph = true;
+        s.inParagraph = true;
     } else {
         out += "<br/>";
     }
@@ -253,12 +252,12 @@ std::string SimpleMarkdownRenderer::escapeHtml(const std::string& text)
 }
 
 // ----------------------------------------------------------------
-void SimpleMarkdownRenderer::closeOpenBlocks(std::string& html)
+void SimpleMarkdownRenderer::closeOpenBlocks(std::string& html, RenderState& s)
 {
-    if (m_inCodeBlock)  { html += "</code></pre>\n"; m_inCodeBlock = false; }
-    if (m_inUl)         { html += "</ul>\n";          m_inUl        = false; }
-    if (m_inOl)         { html += "</ol>\n";          m_inOl        = false; }
-    if (m_inParagraph)  { html += "</p>\n";           m_inParagraph = false; }
+    if (s.inCodeBlock)  { html += "</code></pre>\n"; s.inCodeBlock = false; }
+    if (s.inUl)         { html += "</ul>\n";          s.inUl        = false; }
+    if (s.inOl)         { html += "</ol>\n";          s.inOl        = false; }
+    if (s.inParagraph)  { html += "</p>\n";           s.inParagraph = false; }
 }
 
 } // namespace rendering

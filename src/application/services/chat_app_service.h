@@ -59,7 +59,9 @@ public:
     void clearSession();
 
 private:
-    std::string buildContextPrompt(const std::string& query) const;
+    // 接收已有搜索结果，避免重复搜索
+    std::string buildContextPrompt(const std::string& query,
+                                   const std::vector<domain::knowledge::Document>& docs) const;
 
     std::shared_ptr<domain::chat::ChatSession>            m_session;
     std::shared_ptr<domain::chat::ChatProcessor>          m_processor;

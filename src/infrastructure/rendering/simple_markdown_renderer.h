@@ -29,17 +29,19 @@ public:
 
 private:
     // --- 行级处理 ---
-    std::string processLine(const std::string& line);
+    // 状态通过 RenderState 结构体传递，不保存在成员变量里，render() 可安全重入
+    struct RenderState {
+        bool inCodeBlock  = false;
+        bool inUl         = false;
+        bool inOl         = false;
+        bool inParagraph  = false;
+    };
+
+    std::string processLine(const std::string& line, RenderState& state);
     std::string processInline(const std::string& text);
     static std::string escapeHtml(const std::string& text);
 
-    // --- 状态 ---
-    bool m_inCodeBlock   = false;
-    bool m_inUl          = false;
-    bool m_inOl          = false;
-    bool m_inParagraph   = false;
-
-    void closeOpenBlocks(std::string& html);
+    void closeOpenBlocks(std::string& html, RenderState& state);
 };
 
 } // namespace rendering

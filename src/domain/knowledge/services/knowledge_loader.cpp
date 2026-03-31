@@ -29,11 +29,9 @@ std::shared_ptr<KnowledgeBase> KnowledgeLoader::loadKnowledgeBase(
         throw std::runtime_error("知识库目录不存在: " + name);
     }
 
-    // 加载所有 Markdown 文件
+    // 批量加载：收集所有文档后一次性添加，只触发一次索引重建
     auto documents = loadDocuments(dirPath.toStdString());
-    for (const auto& doc : documents) {
-        kb->addDocument(doc);
-    }
+    kb->addDocuments(documents);
 
     qDebug() << "加载知识库" << QString::fromStdString(name)
              << "完成，文档数:" << documents.size();

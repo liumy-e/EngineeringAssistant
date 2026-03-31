@@ -33,6 +33,14 @@ std::vector<SkillMeta> SkillRegistry::getAllMeta() const
     return result;
 }
 
+std::optional<SkillMeta> SkillRegistry::getMeta(const SkillId& id) const
+{
+    auto it = m_skills.find(id.value);
+    if (it != m_skills.end())
+        return it->second->meta();
+    return std::nullopt;
+}
+
 bool SkillRegistry::contains(const SkillId& id) const
 {
     return m_skills.count(id.value) > 0;

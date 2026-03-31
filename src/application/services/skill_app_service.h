@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 #include "../../domain/skill/models/skill_registry.h"
 #include "../../domain/skill/models/skill_meta.h"
 
@@ -39,6 +40,11 @@ public:
      * @brief 获取所有已注册 Skill 的元数据列表
      */
     std::vector<domain::skill::SkillMeta> listSkills() const;
+
+    /**
+     * @brief 按 ID 查询单个 Skill 元数据（O(log N)，无需全量拷贝列表）
+     */
+    std::optional<domain::skill::SkillMeta> getSkillMeta(const std::string& skillId) const;
 
     /**
      * @brief 注销一个 Skill

@@ -5,7 +5,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET   = EngineeringAssistant
 TEMPLATE = app
 
-CONFIG += c++14
+CONFIG += c++17
 CONFIG -= app_bundle
 
 INCLUDEPATH += src \
@@ -59,6 +59,7 @@ HEADERS += \
     src/domain/knowledge/models/document_id.h \
     src/domain/knowledge/models/knowledge_id.h \
     src/domain/knowledge/models/knowledge_type.h \
+    src/domain/knowledge/models/chunk.h \
     src/domain/knowledge/models/document.h \
     src/domain/knowledge/models/knowledge_base.h \
     src/domain/knowledge/repositories/knowledge_base_repository.h \

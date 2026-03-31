@@ -48,9 +48,8 @@ void ChatAppService::handleUserInput(const std::string& userText,
     if (m_knowledgeBase) {
         auto docs = m_knowledgeBase->searchDocuments(userText);
         if (!docs.empty()) {
-            // 把最相关的前 3 篇文档摘要拼入 prompt（简单实现）
-            query = buildContextPrompt(userText);
-            (void)docs; // 已在 buildContextPrompt 中使用
+            // 把最相关的前 3 篇文档摘要拼入 prompt（直接复用已有搜索结果，不再二次搜索）
+            query = buildContextPrompt(userText, docs);
         }
     }
 
@@ -84,24 +83,25 @@ void ChatAppService::clearSession()
 }
 
 // ----------------------------------------------------------------
-// 简单的检索增强：把搜索到的文档片段拼到查询前面
+// 检索增强：把已搜索到的文档片段拼到查询前面（无重复搜索）
 // ----------------------------------------------------------------
-std::string ChatAppService::buildContextPrompt(const std::string& query) const
+std::string ChatAppService::buildContextPrompt(
+        const std::string& query,
+        const std::vector<domain::knowledge::Document>& docs) const
 {
-    if (!m_knowledgeBase) return query;
-
-    auto docs = m_knowledgeBase->searchDocuments(query);
     if (docs.empty()) return query;
 
     std::string context = "【知识库参考】\n\n";
     int count = 0;
-    for (auto& doc : docs) {
+    for (const auto& doc : docs) {
         if (count++ >= 3) break;
         context += "**" + doc.getTitle() + "**\n";
-        // 取前 300 字
-        auto content = doc.getContent();
-        if (content.size() > 300) content = content.substr(0, 300) + "...";
-        context += content + "\n\n";
+        // 取前 300 字（引用引用返回后 getContent() 是零拷贝）
+        const auto& content = doc.getContent();
+        if (content.size() > 300)
+            context += content.substr(0, 300) + "...\n\n";
+        else
+            context += content + "\n\n";
     }
     context += "---\n\n**用户问题：** " + query;
     return context;

@@ -249,8 +249,8 @@ void MainWindow::setupUI()
 void MainWindow::setupConnections()
 {
     connect(m_kbPanel, &KBPanel::knowledgeBaseChanged, this, [this](){
-        m_chatService->attachKnowledgeBase(m_kbService->currentKnowledgeBase());
-        auto kb = m_kbService->currentKnowledgeBase();
+        auto kb = m_kbService->currentKnowledgeBase();   // 只调用一次
+        m_chatService->attachKnowledgeBase(kb);
         if (kb) {
             statusBar()->showMessage(
                 QString("✅  知识库已加载: %1").arg(

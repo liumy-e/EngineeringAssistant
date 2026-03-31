@@ -18,8 +18,8 @@ public:
 
     // Getter
     DocumentId getId() const { return m_id; }
-    std::string getTitle() const { return m_title; }
-    std::string getContent() const { return m_content; }
+    const std::string& getTitle()   const { return m_title; }    // 引用返回，零拷贝
+    const std::string& getContent() const { return m_content; }  // 引用返回，零拷贝
     KnowledgeType getType() const { return m_type; }
 
     // Setter

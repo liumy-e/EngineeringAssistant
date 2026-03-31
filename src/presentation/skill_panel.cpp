@@ -666,9 +666,10 @@ void SkillPanel::onSkillSelected(QListWidgetItem* item)
 void SkillPanel::showSkillDetail(const std::string& skillId)
 {
     if (!m_service) return;
-    auto metas = m_service->listSkills();
-    for (auto& meta : metas) {
-        if (meta.id.value != skillId) continue;
+    // 按 ID 直接查询，O(log N)，避免全量拷贝所有 SkillMeta
+    auto metaOpt = m_service->getSkillMeta(skillId);
+    if (!metaOpt) return;
+    const auto& meta = *metaOpt;
 
         QString html;
         html += "<div style='padding: 4px 0 16px 0; border-bottom: 1px solid #eef2f8; margin-bottom: 16px;'>";
@@ -736,6 +737,4 @@ void SkillPanel::showSkillDetail(const std::string& skillId)
         html += "</code></pre></div>";
 
         m_detailView->setHtml(html);
-        return;
-    }
 }

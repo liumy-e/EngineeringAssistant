@@ -8,6 +8,7 @@
 #include <QFrame>
 #include <QScrollBar>
 #include <QSizePolicy>
+#include <QTimer>
 
 // ----------------------------------------------------------------
 // 自定义输入框：Enter 发送，Shift+Enter 换行
@@ -234,22 +235,21 @@ void ChatWidget::appendUserText(const QString& text)
     QString escaped = text.toHtmlEscaped().replace("\n", "<br/>");
     QString timeStr = QDateTime::currentDateTime().toString("hh:mm");
 
-    // Qt 富文本引擎不支持 width:100% / display:inline-block / flex
-    // 正确做法：外层 table align=right，用固定像素列宽推开左侧空间
-    // 结构：[空白撑开列(伸缩)] | [气泡内容列, 固定宽] | [头像列, 40px]
+    // 用户气泡：右对齐
+    // 结构：[空白左侧 20%] | [气泡主体 72%] | [头像 40px]
     QString html = QString(
         "<table width='100%' cellspacing='0' cellpadding='0'"
         "       style='margin:10px 0 4px 0;'>"
         "<tr>"
-        "  <td></td>"  // 左侧空白，自动占满剩余
-        "  <td width='1' valign='top' style='padding-right:6px;'>"
-        "    <table cellspacing='0' cellpadding='0'><tr><td"
-        "      style='background:#4A90D9; color:#ffffff;"
-        "             border-radius:14px 14px 2px 14px;"
-        "             padding:9px 14px;"
-        "             font-size:13px; line-height:1.65;'>"
+        "  <td width='20%'></td>"
+        "  <td width='72%' valign='top' style='padding-right:8px;'>"
+        "    <div style='background:#4A90D9; color:#ffffff;"
+        "         border-radius:14px 14px 2px 14px;"
+        "         padding:9px 14px;"
+        "         font-size:13px; line-height:1.65;"
+        "         word-wrap:break-word;'>"
         "      %1"
-        "    </td></tr></table>"
+        "    </div>"
         "    <p align='right'"
         "       style='margin:2px 0 0 0; font-size:10px; color:#b0bcc8;'>"
         "      %2"
@@ -269,21 +269,25 @@ void ChatWidget::appendUserText(const QString& text)
     ).arg(escaped, timeStr);
 
     m_messageView->append(html);
-    m_messageView->verticalScrollBar()->setValue(
-        m_messageView->verticalScrollBar()->maximum());
+    // 延迟滚动：等当前事件循环结束后再滚动，批量消息时只触发最后一次布局重算
+    QTimer::singleShot(0, this, [this]{
+        m_messageView->verticalScrollBar()->setValue(
+            m_messageView->verticalScrollBar()->maximum());
+    });
 }
 
 void ChatWidget::appendHtmlReply(const QString& replyHtml)
 {
     QString timeStr = QDateTime::currentDateTime().toString("hh:mm");
 
-    // 结构：[头像列, 40px] | [气泡内容列, 固定宽] | [空白撑开列(伸缩)]
+    // AI 气泡：左对齐
+    // 结构：[头像 40px] | [气泡主体 72%] | [空白右侧 20%]
     QString wrapper = QString(
         "<table width='100%' cellspacing='0' cellpadding='0'"
         "       style='margin:10px 0 4px 0;'>"
         "<tr>"
         "  <td width='36' valign='top' align='center'"
-        "      style='padding-top:2px; padding-right:6px;'>"
+        "      style='padding-top:2px; padding-right:8px;'>"
         "    <table cellspacing='0' cellpadding='0'><tr><td width='32' height='32'"
         "      align='center' valign='middle'"
         "      style='background:#1e2a3a; border-radius:16px;"
@@ -291,27 +295,30 @@ void ChatWidget::appendHtmlReply(const QString& replyHtml)
         "      AI"
         "    </td></tr></table>"
         "  </td>"
-        "  <td width='1' valign='top'>"
-        "    <table cellspacing='0' cellpadding='0'><tr><td"
-        "      style='background:#ffffff; border:1px solid #dde6f0;"
-        "             border-radius:2px 14px 14px 14px;"
-        "             padding:10px 15px;"
-        "             font-size:13px; line-height:1.7;'>"
+        "  <td width='72%' valign='top'>"
+        "    <div style='background:#ffffff; border:1px solid #dde6f0;"
+        "         border-radius:2px 14px 14px 14px;"
+        "         padding:10px 15px;"
+        "         font-size:13px; line-height:1.7;"
+        "         word-wrap:break-word;'>"
         "      %1"
-        "    </td></tr></table>"
+        "    </div>"
         "    <p align='left'"
         "       style='margin:2px 0 0 0; font-size:10px; color:#b0bcc8;'>"
         "      助手 · %2"
         "    </p>"
         "  </td>"
-        "  <td></td>"  // 右侧空白
+        "  <td width='20%'></td>"
         "</tr>"
         "</table>"
     ).arg(replyHtml, timeStr);
 
     m_messageView->append(wrapper);
-    m_messageView->verticalScrollBar()->setValue(
-        m_messageView->verticalScrollBar()->maximum());
+    // 延迟滚动：等当前事件循环结束后再滚动，批量消息时只触发最后一次布局重算
+    QTimer::singleShot(0, this, [this]{
+        m_messageView->verticalScrollBar()->setValue(
+            m_messageView->verticalScrollBar()->maximum());
+    });
 }
 
 void ChatWidget::appendSystemText(const QString& text)

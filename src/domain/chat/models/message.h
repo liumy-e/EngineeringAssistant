@@ -18,7 +18,7 @@ public:
 
     // Getter
     MessageId getId() const { return m_id; }
-    std::string getContent() const { return m_content; }
+    const std::string& getContent() const { return m_content; }  // 引用返回，零拷贝
     MessageType getType() const { return m_type; }
     QDateTime getTimestamp() const { return m_timestamp; }
 

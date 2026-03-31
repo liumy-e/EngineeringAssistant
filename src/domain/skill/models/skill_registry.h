@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <optional>
 #include "../interfaces/skill_interface.h"
 #include "../models/skill_id.h"
 #include "../models/skill_meta.h"
@@ -50,6 +51,12 @@ public:
      * @brief 获取所有已注册 Skill 的元数据列表
      */
     std::vector<SkillMeta> getAllMeta() const;
+
+    /**
+     * @brief 按 ID 查询单个 Skill 元数据（O(log N)，无需全量拷贝列表）
+     * @return 找到则返回 SkillMeta，否则返回 std::nullopt
+     */
+    std::optional<SkillMeta> getMeta(const SkillId& id) const;
 
     /**
      * @brief 检查某 Skill 是否已注册
